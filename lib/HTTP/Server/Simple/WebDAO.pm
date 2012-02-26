@@ -4,14 +4,13 @@ use strict;
 use warnings;
 use HTTP::Server::Simple::CGI;
 use base qw/HTTP::Server::Simple::CGI/;
-use v5.10;
 use WebDAO;
 use WebDAO::Util;
 use WebDAO::Engine;
 use WebDAO::Session;
 use WebDAO::Store::Abstract;
 use vars qw($VERSION);
-$VERSION = '0.02';
+$VERSION = '0.03';
 
 =head1 NAME
 
@@ -98,6 +97,7 @@ package HTTP::Server::Simple::WebDAO::CVcgi;
 use strict;
 use warnings;
 use WebDAO::CVfcgi;
+use WebDAO::Util;
 use base qw/WebDAO::CVfcgi/;
 sub new {
     my $class = shift;
@@ -105,7 +105,7 @@ sub new {
         my $code = $_[0]->[0];
         my $headers_ref  = $_[0]->[1];
         my $fd = new WebDAO::Fcgi::Writer:: headers=>$headers_ref;
-        my $message = $WebDAO::CVfcgi::StatusCode{$code};
+        my $message = $WebDAO::Util::HTTPStatusCode{$code};
         my $header_str= "HTTP/1.0 $code $message\015\012";
         while ( my ($header, $value) = splice( @$headers_ref, 0, 2) ) {
             $header_str .= "$header: $value\015\012"
