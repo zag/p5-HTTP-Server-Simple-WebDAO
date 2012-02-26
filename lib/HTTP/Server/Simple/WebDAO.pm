@@ -2,9 +2,11 @@
 package HTTP::Server::Simple::WebDAO;
 use strict;
 use warnings;
+use HTTP::Server::Simple::CGI;
 use base qw/HTTP::Server::Simple::CGI/;
 use v5.10;
 use WebDAO;
+use WebDAO::Util;
 use WebDAO::Engine;
 use WebDAO::Session;
 use WebDAO::Store::Abstract;
@@ -41,7 +43,7 @@ Zahatski Aliaksandr
 
 =head1 LICENSE
 
-Copyright 2011 by Zahatski Aliaksandr
+Copyright 2011-2012 by Zahatski Aliaksandr
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
@@ -55,35 +57,6 @@ sub new {
     return $self;
 }
 
-sub auto_load_class {
-    my $self = shift;
-    my $class = shift || return;
-
-    #check non loaded mods
-    my ( $main, $module ) = $class =~ m/(.*\:\:)?(\S+)$/;
-    $main ||= 'main::';
-    $module .= '::';
-    no strict 'refs';
-    unless ( exists $$main{$module} ) {
-        warn "Try use $class";
-        eval "use $class";
-        if ($@) {
-            die "Error register class :$class with $@ ";
-        }
-    }
-    use strict 'refs';
-}
-
-sub _parse_str_to_hash {
-    my $str = shift;
-    return unless $str;
-    my %hash = map { split( /=/, $_ ) } split( /;/, $str );
-    foreach ( values %hash ) {
-        s/^\s+//;
-        s/\s+^//;
-    }
-    \%hash;
-}
 
 sub set_config {
     my $self = shift;
@@ -91,67 +64,57 @@ sub set_config {
     while ( my ( $k, $v ) = each %args ) {
         $self->{$k} = $v;
     }
-    my ( $store_class, $session_class, $eng_class ) = map {
-        $self->auto_load_class($_);
-        $_
-      } (
-        $ENV{wdStore}   || $args{wdStore}   || 'WebDAO::Store::Abstract',
-        $ENV{wdSession} || $args{wdSession} || 'WebDAO::Session',
-        $ENV{wdEngine}  || $args{wdEngine}  || 'WebDAO::Engine'
-      );
-    @{$self}{qw/ store_class session_class eng_class/} =
-      ( $store_class, $session_class, $eng_class );
+    $ENV{wdStore}   ||= $args{wdStore};
+    $ENV{wdSession} ||= $args{wdSession};
+    $ENV{wdEngine}  ||= $args{wdEngine};
+    #preload defaults
+    $self->{ini} = WebDAO::Util::get_classes(__env => \%ENV, __preload=>1);
+ 
     $self;
 }
 
 sub handle_request {
     my ( $self, $cgi ) = @_;
-    my ( $store_class, $session_class, $eng_class ) =
-      @{$self}{qw/ store_class session_class eng_class/};
-
-    #Make Session object
-    my $store_obj = $store_class->new(
-        %{
-            &_parse_str_to_hash( $self->{wdStorePar} || $ENV{wdStorePar} ) || {}
-          }
+    my $ini = $self->{ini};
+    my $store_obj = "$ini->{wdStore}"->new(
+            %{ $ini->{wdStorePar} }
     );
-    my $sess = $session_class->new(
-        %{
-            &_parse_str_to_hash( $self->{wdSessionPar} || $ENV{wdSessionPar} )
-              || {}
-          },
+    my $sess = "$ini->{wdSession}"->new(
+        %{ $ini->{wdSessionPar} },
         store => $store_obj,
-        cv    => HTTP::Server::Simple::WebDAO::CVcgi->new($cgi)
+        cv    => HTTP::Server::Simple::WebDAO::CVcgi->new(env=>\%ENV)
     );
-    $sess->set_header( -type => 'text/html; charset=utf-8' );
-    my $eng = $eng_class->new(
-        %{
-            &_parse_str_to_hash( $self->{wdEnginePar} || $ENV{wdEnginePar} )
-              || {}
-          },
+
+    my $eng = "$ini->{wdEngine}"->new(
+        %{ $ini->{wdEnginePar} },
         session => $sess,
     );
     $ENV{wdDebug} = $self->{wdDebug} if exists $self->{wdDebug};
     $sess->ExecEngine($eng);
     $sess->destroy;
 
-    #... do something, print output to default
-    # selected filehandle...
-    #    print "200 OK\r\n";
-    #    print STDERR $cgi->header;
-
 }
 package HTTP::Server::Simple::WebDAO::CVcgi;
 use strict;
 use warnings;
-use WebDAO::CVcgi;
-use base qw/WebDAO::CVcgi/;
-sub response {
-    my $self        = shift;
-    my $res         = shift || return;
-    my $status = $res->{'headers'}->{'-STATUS'} || "200 OK" ; 
-    $self->print("HTTP/1.0 $status\r\n");
-    $self->SUPER::response($res);
+use WebDAO::CVfcgi;
+use base qw/WebDAO::CVfcgi/;
+sub new {
+    my $class = shift;
+    return $class->WebDAO::CV::new(@_, writer=> sub {
+        my $code = $_[0]->[0];
+        my $headers_ref  = $_[0]->[1];
+        my $fd = new WebDAO::Fcgi::Writer:: headers=>$headers_ref;
+        my $message = $WebDAO::CVfcgi::StatusCode{$code};
+        my $header_str= "HTTP/1.0 $code $message\015\012";
+        while ( my ($header, $value) = splice( @$headers_ref, 0, 2) ) {
+            $header_str .= "$header: $value\015\012"
+        }
+        $header_str .="\015\012";
+        $fd->write($header_str);
+        return $fd
+    } )
 }
+
 package HTTP::Server::Simple::WebDAO;
 1;

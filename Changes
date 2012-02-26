@@ -1,4 +1,5 @@
 Revision history for Perl extension HTTP::Server::Simple::WebDAO.
-
+0.02 26 Feb 2012
+    + use WebDAO 2.0 
 0.01
     + initial release of HTTP::Server::Simple::WebDAO suite
