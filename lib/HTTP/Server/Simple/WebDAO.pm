@@ -99,6 +99,8 @@ use warnings;
 use WebDAO::CVfcgi;
 use WebDAO::Util;
 use base qw/WebDAO::CVfcgi/;
+use vars qw($VERSION);
+$VERSION = '0.01';
 sub new {
     my $class = shift;
     return $class->WebDAO::CV::new(@_, writer=> sub {
