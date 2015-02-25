@@ -5,7 +5,7 @@ Module::Build->new
     license => 'perl',
    prereq => {
 	'HTTP::Server::Simple'=>0.44,
-	'WebDAO'=>2.1
+	'WebDAO'=>2.20
 	     },
    dist_version_from=>'lib/HTTP/Server/Simple/WebDAO.pm',
    dist_author=>'Zahatski Aliaksandr zag@cpan.org',

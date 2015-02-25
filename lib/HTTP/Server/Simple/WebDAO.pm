@@ -8,9 +8,8 @@ use WebDAO;
 use WebDAO::Util;
 use WebDAO::Engine;
 use WebDAO::Session;
-use WebDAO::Store::Abstract;
 use vars qw($VERSION);
-$VERSION = '0.03';
+$VERSION = '0.04';
 
 =head1 NAME
 
@@ -42,7 +41,7 @@ Zahatski Aliaksandr
 
 =head1 LICENSE
 
-Copyright 2011-2012 by Zahatski Aliaksandr
+Copyright 2011-2015 by Zahatski Aliaksandr
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
@@ -63,7 +62,6 @@ sub set_config {
     while ( my ( $k, $v ) = each %args ) {
         $self->{$k} = $v;
     }
-    $ENV{wdStore}   ||= $args{wdStore};
     $ENV{wdSession} ||= $args{wdSession};
     $ENV{wdEngine}  ||= $args{wdEngine};
     #preload defaults
@@ -75,12 +73,8 @@ sub set_config {
 sub handle_request {
     my ( $self, $cgi ) = @_;
     my $ini = $self->{ini};
-    my $store_obj = "$ini->{wdStore}"->new(
-            %{ $ini->{wdStorePar} }
-    );
     my $sess = "$ini->{wdSession}"->new(
         %{ $ini->{wdSessionPar} },
-        store => $store_obj,
         cv    => HTTP::Server::Simple::WebDAO::CVcgi->new(env=>\%ENV)
     );
 
